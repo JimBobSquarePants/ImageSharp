@@ -114,23 +114,34 @@ namespace SixLabors.ImageSharp.Tests.Formats.Jpg
                 Assert.Equal(actualDest, expectedDest, new ApproximateFloatComparer(1f));
             }
 
-            [Theory]
+            [RuntimeFeatureConditionalTheory(RuntimeFeature.Avx)]
             [InlineData(1)]
             [InlineData(2)]
             public void IDCT8x8_Avx(int seed)
             {
-#if SUPPORTS_RUNTIME_INTRINSICS
-                var skip = !Avx.IsSupported;
-#else
-                var skip = true;
-#endif
-
-                if (skip)
+                static void RunTest(string serialized)
                 {
-                    this.Output.WriteLine("No AVX present, skipping test!");
-                    return;
+                    int seed = FeatureTestRunner.Deserialize<int>(serialized);
+
+                    TestImpl_IDCT8x8(seed);
                 }
 
+                FeatureTestRunner.RunWithHwIntrinsicsFeature(
+                    RunTest,
+                    seed,
+                    HwIntrinsics.DisableFMA);
+            }
+
+            [RuntimeFeatureConditionalTheory(RuntimeFeature.Avx | RuntimeFeature.Fma)]
+            [InlineData(1)]
+            [InlineData(2)]
+            public void IDCT8x8_Avx_Fma(int seed)
+            {
+                TestImpl_IDCT8x8(seed);
+            }
+
+            private static void TestImpl_IDCT8x8(int seed)
+            {
                 Span<float> src = Create8x8RoundedRandomFloatData(-200, 200, seed);
                 var srcBlock = default(Block8x8F);
                 srcBlock.LoadFrom(src);
@@ -248,22 +259,34 @@ namespace SixLabors.ImageSharp.Tests.Formats.Jpg
                 Assert.Equal(actualDest, expectedDest, new ApproximateFloatComparer(1f));
             }
 
-            [Theory]
+            [RuntimeFeatureConditionalTheory(RuntimeFeature.Avx)]
             [InlineData(1)]
             [InlineData(2)]
             public void FDCT8x8_Avx(int seed)
             {
-#if SUPPORTS_RUNTIME_INTRINSICS
-                var skip = !Avx.IsSupported;
-#else
-                var skip = true;
-#endif
-                if (skip)
+                static void RunTest(string serialized)
                 {
-                    this.Output.WriteLine("No AVX present, skipping test!");
-                    return;
+                    int seed = FeatureTestRunner.Deserialize<int>(serialized);
+
+                    TestImpl_FDCT8x8(seed);
                 }
 
+                FeatureTestRunner.RunWithHwIntrinsicsFeature(
+                    RunTest,
+                    seed,
+                    HwIntrinsics.DisableFMA);
+            }
+
+            [RuntimeFeatureConditionalTheory(RuntimeFeature.Avx | RuntimeFeature.Fma)]
+            [InlineData(1)]
+            [InlineData(2)]
+            public void FDCT8x8_Avx_Fma(int seed)
+            {
+                TestImpl_FDCT8x8(seed);
+            }
+
+            private static void TestImpl_FDCT8x8(int seed)
+            {
                 Span<float> src = Create8x8RoundedRandomFloatData(-200, 200, seed);
                 var srcBlock = default(Block8x8F);
                 srcBlock.LoadFrom(src);

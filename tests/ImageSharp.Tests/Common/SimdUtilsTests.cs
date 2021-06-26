@@ -4,10 +4,6 @@
 using System;
 using System.Linq;
 using System.Numerics;
-using System.Runtime.CompilerServices;
-#if SUPPORTS_RUNTIME_INTRINSICS
-using System.Runtime.Intrinsics.X86;
-#endif
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Tests.TestUtilities;
 using Xunit;
@@ -105,29 +101,13 @@ namespace SixLabors.ImageSharp.Tests.Common
             AssertEvenRoundIsCorrect(r, v);
         }
 
-        private bool SkipOnNonAvx2([CallerMemberName] string testCaseName = null)
-        {
-            if (!SimdUtils.HasVector8)
-            {
-                this.Output.WriteLine("Skipping AVX2 specific test case: " + testCaseName);
-                return true;
-            }
-
-            return false;
-        }
-
-        [Theory]
+        [RuntimeFeatureConditionalTheory(RuntimeFeature.Vector8)]
         [InlineData(1, 0)]
         [InlineData(1, 8)]
         [InlineData(2, 16)]
         [InlineData(3, 128)]
         public void BasicIntrinsics256_BulkConvertNormalizedFloatToByte_WithRoundedData(int seed, int count)
         {
-            if (this.SkipOnNonAvx2())
-            {
-                return;
-            }
-
             float[] orig = new Random(seed).GenerateRandomRoundedFloatArray(count, 0, 256);
             float[] normalized = orig.Select(f => f / 255f).ToArray();
 
@@ -140,18 +120,13 @@ namespace SixLabors.ImageSharp.Tests.Common
             Assert.Equal(expected, dest);
         }
 
-        [Theory]
+        [RuntimeFeatureConditionalTheory(RuntimeFeature.Vector8)]
         [InlineData(1, 0)]
         [InlineData(1, 8)]
         [InlineData(2, 16)]
         [InlineData(3, 128)]
         public void BasicIntrinsics256_BulkConvertNormalizedFloatToByte_WithNonRoundedData(int seed, int count)
         {
-            if (this.SkipOnNonAvx2())
-            {
-                return;
-            }
-
             float[] source = new Random(seed).GenerateRandomFloatArray(count, 0, 1f);
 
             var dest = new byte[count];
@@ -183,15 +158,10 @@ namespace SixLabors.ImageSharp.Tests.Common
                 (s, d) => SimdUtils.FallbackIntrinsics128.ByteToNormalizedFloat(s.Span, d.Span));
         }
 
-        [Theory]
+        [RuntimeFeatureConditionalTheory(RuntimeFeature.Vector8)]
         [MemberData(nameof(ArraySizesDivisibleBy8))]
         public void BasicIntrinsics256_BulkConvertByteToNormalizedFloat(int count)
         {
-            if (this.SkipOnNonAvx2())
-            {
-                return;
-            }
-
             TestImpl_BulkConvertByteToNormalizedFloat(
                 count,
                 (s, d) => SimdUtils.BasicIntrinsics256.ByteToNormalizedFloat(s.Span, d.Span));
@@ -206,11 +176,11 @@ namespace SixLabors.ImageSharp.Tests.Common
                 (s, d) => SimdUtils.ExtendedIntrinsics.ByteToNormalizedFloat(s.Span, d.Span));
         }
 
-#if SUPPORTS_RUNTIME_INTRINSICS
-        [Theory]
+        [RuntimeFeatureConditionalTheory(RuntimeFeature.Sse41)]
         [MemberData(nameof(ArraySizesDivisibleBy32))]
-        public void HwIntrinsics_BulkConvertByteToNormalizedFloat(int count)
+        public void HwIntrinsics_BulkConvertByteToNormalizedFloat_Sse41(int count)
         {
+#if SUPPORTS_RUNTIME_INTRINSICS
             static void RunTest(string serialized)
             {
                 TestImpl_BulkConvertByteToNormalizedFloat(
@@ -221,9 +191,30 @@ namespace SixLabors.ImageSharp.Tests.Common
             FeatureTestRunner.RunWithHwIntrinsicsFeature(
                 RunTest,
                 count,
-                HwIntrinsics.AllowAll | HwIntrinsics.DisableAVX2 | HwIntrinsics.DisableSSE41);
-        }
+                HwIntrinsics.DisableAVX2);
 #endif
+        }
+
+        [RuntimeFeatureConditionalTheory(RuntimeFeature.Avx2)]
+        [MemberData(nameof(ArraySizesDivisibleBy32))]
+        public void HwIntrinsics_BulkConvertByteToNormalizedFloat_Avx2(int count)
+        {
+#if SUPPORTS_RUNTIME_INTRINSICS
+            this.Output.WriteLine($"Avx2.IsSupported: {System.Runtime.Intrinsics.X86.Avx2.IsSupported}");
+
+            static void RunTest(string serialized)
+            {
+                TestImpl_BulkConvertByteToNormalizedFloat(
+                    FeatureTestRunner.Deserialize<int>(serialized),
+                    (s, d) => SimdUtils.HwIntrinsics.ByteToNormalizedFloat(s.Span, d.Span));
+            }
+
+            FeatureTestRunner.RunWithHwIntrinsicsFeature(
+                RunTest,
+                count,
+                HwIntrinsics.AllowAll);
+#endif
+        }
 
         [Theory]
         [MemberData(nameof(ArbitraryArraySizes))]
@@ -256,15 +247,10 @@ namespace SixLabors.ImageSharp.Tests.Common
                 (s, d) => SimdUtils.FallbackIntrinsics128.NormalizedFloatToByteSaturate(s.Span, d.Span));
         }
 
-        [Theory]
+        [RuntimeFeatureConditionalTheory(RuntimeFeature.Vector8)]
         [MemberData(nameof(ArraySizesDivisibleBy8))]
         public void BasicIntrinsics256_BulkConvertNormalizedFloatToByteClampOverflows(int count)
         {
-            if (this.SkipOnNonAvx2())
-            {
-                return;
-            }
-
             TestImpl_BulkConvertNormalizedFloatToByteClampOverflows(count, (s, d) => SimdUtils.BasicIntrinsics256.NormalizedFloatToByteSaturate(s.Span, d.Span));
         }
 
@@ -298,12 +284,11 @@ namespace SixLabors.ImageSharp.Tests.Common
             Assert.Equal(expected2, actual2);
         }
 
-#if SUPPORTS_RUNTIME_INTRINSICS
-
-        [Theory]
+        [RuntimeFeatureConditionalTheory(RuntimeFeature.Sse2)]
         [MemberData(nameof(ArraySizesDivisibleBy32))]
-        public void HwIntrinsics_BulkConvertNormalizedFloatToByteClampOverflows(int count)
+        public void HwIntrinsics_BulkConvertNormalizedFloatToByteClampOverflows_Sse2(int count)
         {
+#if SUPPORTS_RUNTIME_INTRINSICS
             static void RunTest(string serialized)
             {
                 TestImpl_BulkConvertNormalizedFloatToByteClampOverflows(
@@ -314,10 +299,28 @@ namespace SixLabors.ImageSharp.Tests.Common
             FeatureTestRunner.RunWithHwIntrinsicsFeature(
                 RunTest,
                 count,
-                HwIntrinsics.AllowAll | HwIntrinsics.DisableAVX2);
+                HwIntrinsics.DisableAVX2);
+#endif
         }
 
+        [RuntimeFeatureConditionalTheory(RuntimeFeature.Avx2)]
+        [MemberData(nameof(ArraySizesDivisibleBy32))]
+        public void HwIntrinsics_BulkConvertNormalizedFloatToByteClampOverflows_Avx2(int count)
+        {
+#if SUPPORTS_RUNTIME_INTRINSICS
+            static void RunTest(string serialized)
+            {
+                TestImpl_BulkConvertNormalizedFloatToByteClampOverflows(
+                    FeatureTestRunner.Deserialize<int>(serialized),
+                    (s, d) => SimdUtils.HwIntrinsics.NormalizedFloatToByteSaturate(s.Span, d.Span));
+            }
+
+            FeatureTestRunner.RunWithHwIntrinsicsFeature(
+                RunTest,
+                count,
+                HwIntrinsics.AllowAll);
 #endif
+        }
 
         [Theory]
         [MemberData(nameof(ArbitraryArraySizes))]
@@ -358,15 +361,10 @@ namespace SixLabors.ImageSharp.Tests.Common
                     SimdUtils.PackFromRgbPlanes(Configuration.Default, r, g, b, actual));
         }
 
-#if SUPPORTS_RUNTIME_INTRINSICS
-        [Fact]
+        [RuntimeFeatureConditionalFact(RuntimeFeature.Avx2)]
         public void PackFromRgbPlanesAvx2Reduce_Rgb24()
         {
-            if (!Avx2.IsSupported)
-            {
-                return;
-            }
-
+#if SUPPORTS_RUNTIME_INTRINSICS
             byte[] r = Enumerable.Range(0, 32).Select(x => (byte)x).ToArray();
             byte[] g = Enumerable.Range(100, 32).Select(x => (byte)x).ToArray();
             byte[] b = Enumerable.Range(200, 32).Select(x => (byte)x).ToArray();
@@ -391,16 +389,13 @@ namespace SixLabors.ImageSharp.Tests.Common
             Assert.Equal(0, gg.Length);
             Assert.Equal(0, bb.Length);
             Assert.Equal(padding, dd.Length);
+#endif
         }
 
-        [Fact]
+        [RuntimeFeatureConditionalFact(RuntimeFeature.Avx2)]
         public void PackFromRgbPlanesAvx2Reduce_Rgba32()
         {
-            if (!Avx2.IsSupported)
-            {
-                return;
-            }
-
+#if SUPPORTS_RUNTIME_INTRINSICS
             byte[] r = Enumerable.Range(0, 32).Select(x => (byte)x).ToArray();
             byte[] g = Enumerable.Range(100, 32).Select(x => (byte)x).ToArray();
             byte[] b = Enumerable.Range(200, 32).Select(x => (byte)x).ToArray();
@@ -426,8 +421,8 @@ namespace SixLabors.ImageSharp.Tests.Common
             Assert.Equal(0, gg.Length);
             Assert.Equal(0, bb.Length);
             Assert.Equal(0, dd.Length);
-        }
 #endif
+        }
 
         internal static void TestPackFromRgbPlanes<TPixel>(int count, Action<byte[], byte[], byte[], TPixel[]> packMethod)
             where TPixel : unmanaged, IPixel<TPixel>
