@@ -10,6 +10,7 @@ namespace SixLabors.ImageSharp.Tests.Colorspaces
     /// <summary>
     /// Tests the <see cref="HunterLab"/> struct.
     /// </summary>
+    [Trait("Color", "Conversion")]
     public class HunterLabTests
     {
         [Fact]
@@ -31,10 +32,10 @@ namespace SixLabors.ImageSharp.Tests.Colorspaces
             var x = default(HunterLab);
             var y = new HunterLab(Vector3.One);
 
-            Assert.True(default(HunterLab) == default(HunterLab));
-            Assert.True(new HunterLab(1, 0, 1) != default(HunterLab));
-            Assert.False(new HunterLab(1, 0, 1) == default(HunterLab));
-            Assert.Equal(default(HunterLab), default(HunterLab));
+            Assert.True(default(HunterLab) == default);
+            Assert.True(new HunterLab(1, 0, 1) != default);
+            Assert.False(new HunterLab(1, 0, 1) == default);
+            Assert.Equal(default(HunterLab), default);
             Assert.Equal(new HunterLab(1, 0, 1), new HunterLab(1, 0, 1));
             Assert.Equal(new HunterLab(Vector3.One), new HunterLab(Vector3.One));
             Assert.False(x.Equals(y));
